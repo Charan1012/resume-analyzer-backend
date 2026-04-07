@@ -1,8 +1,8 @@
-# AI Resume Analyzer - Server Documentation
+# HireAI - Server Documentation
 
 ## Overview
 
-This repository is the backend server for the **AI Resume Analyzer** application.
+This repository is the backend server for the **HireAI** application.
 It is built with **Node.js**, **Express**, and **MongoDB**, and exposes a REST API for authentication, file upload, resume parsing, and AI-driven analysis.
 
 The server is designed to be deployed separately from the frontend, for example on **Render**.
