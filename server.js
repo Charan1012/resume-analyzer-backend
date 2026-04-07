@@ -15,7 +15,13 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors());  // Allow frontend to communicate
+app.use(cors(
+  {
+    origin: ['http://localhost:5173', 'https://hireai-resume-analyzer.vercel.app'],
+    credentials: true,
+
+  }
+));  // Allow frontend to communicate
 app.use(express.json());  // Parse JSON bodies
 app.use(express.urlencoded({ extended: true }));  // Parse form data
 
