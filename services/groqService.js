@@ -61,24 +61,45 @@ export const analyzeResumeWithGroq = async (resumeText, jobRole = 'Software Engi
     }
 
     const result = await response.json();
-    // Groq Responses API may return `output_text` or `output` array/object.
+    // Groq Responses API may return `output_text`, an `output` array, or OpenAI-compatible `choices`.
     let text = '';
+
     if (result.output_text) {
       text = result.output_text;
     } else if (result.output) {
       const out = result.output;
       if (typeof out === 'string') {
         text = out;
-      } else if (Array.isArray(out) && out.length > 0) {
-        const first = out[0];
-        text = typeof first === 'string' ? first : first?.content ?? first?.text ?? '';
+      } else if (Array.isArray(out)) {
+        // Walk the output array to find the first textual content
+        for (const item of out) {
+          if (!item) continue;
+          if (typeof item === 'string') { text = item; break; }
+          // message objects contain a content array with output_text entries
+          if (item.type === 'message' && Array.isArray(item.content)) {
+            const outText = item.content.find(c => c && (c.type === 'output_text' || c.text));
+            if (outText) {
+              text = outText.text || outText; // outText may be object with .text
+              break;
+            }
+          }
+          // some items may have direct .text or .content
+          if (item.text) { text = item.text; break; }
+          if (item.content && typeof item.content === 'string') { text = item.content; break; }
+        }
       } else if (out.content) {
         text = out.content;
+      } else if (out.text) {
+        text = out.text;
       }
     } else if (result.choices && Array.isArray(result.choices) && result.choices[0]) {
-      // fallback for openai-compatible choice schema
       const choice = result.choices[0];
-      text = choice.message?.content || choice.text || '';
+      if (choice.message && choice.message.content) {
+        // content may be array or string
+        text = Array.isArray(choice.message.content) ? choice.message.content.map(c=>c.text||c).join('\n') : choice.message.content;
+      } else {
+        text = choice.text || '';
+      }
     }
 
     if (!text || !text.trim()) {
