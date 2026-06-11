@@ -1,7 +1,7 @@
 import fs from 'fs';
 import User from '../models/User.js';
 import { extractText } from '../services/fileParser.js';
-import { analyzeResumeWithGemini } from '../services/geminiService.js';
+import { analyzeResumeWithGroq } from '../services/groqService.js';
 
 // @desc    Upload and analyze resume
 // @route   POST /api/resume/analyze
@@ -39,7 +39,7 @@ export const analyzeResume = async (req, res, next) => {
     // Get AI analysis
     let analysis;
     try {
-      analysis = await analyzeResumeWithGemini(extractedText, jobRole);
+      analysis = await analyzeResumeWithGroq(extractedText, jobRole);
       console.log('✅ AI Analysis completed');
     } catch (aiError) {
       fs.unlinkSync(filePath);

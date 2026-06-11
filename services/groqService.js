@@ -1,14 +1,16 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const apiKey = process.env.GROQ_API_KEY;
+const apiUrl = 'https://api.groq.com/v1/text/generate';
 
-export const analyzeResumeWithGemini = async (resumeText, jobRole = 'Software Engineer') => {
+if (!apiKey) {
+  throw new Error('Missing GROQ_API_KEY environment variable');
+}
+
+export const analyzeResumeWithGroq = async (resumeText, jobRole = 'Software Engineer') => {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
     const prompt = `
     You are an expert ATS (Applicant Tracking System) analyzer and career coach with 10+ years of experience.
     
@@ -34,19 +36,49 @@ export const analyzeResumeWithGemini = async (resumeText, jobRole = 'Software En
     - Consider both content quality and ATS optimization
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    // Extract JSON from response (handle markdown code blocks)
-    const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || 
-                      text.match(/```\n?([\s\S]*?)\n?```/) || 
-                      text.match(/(\{[\s\S]*\})/);
-    
-    if (!jsonMatch) {
-      throw new Error('Could not extract JSON from AI response');
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'groq-1.1-mini',
+        input: prompt,
+        max_output_tokens: 1200
+      })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Groq API error ${response.status}: ${errorBody}`);
     }
-    
+
+    const result = await response.json();
+    const output = result.output;
+    let text = '';
+
+    if (typeof output === 'string') {
+      text = output;
+    } else if (Array.isArray(output)) {
+      const first = output[0];
+      text = typeof first === 'string' ? first : first?.content ?? '';
+    } else if (output?.content) {
+      text = output.content;
+    }
+
+    if (!text || !text.trim()) {
+      throw new Error('Groq API returned empty response');
+    }
+
+    const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) ||
+                      text.match(/```\n?([\s\S]*?)\n?```/) ||
+                      text.match(/(\{[\s\S]*\})/);
+
+    if (!jsonMatch) {
+      throw new Error('Could not extract JSON from Groq response');
+    }
+
     const jsonStr = jsonMatch[1] || jsonMatch[0];
     const analysis = JSON.parse(jsonStr.trim());
     
@@ -61,7 +93,7 @@ export const analyzeResumeWithGemini = async (resumeText, jobRole = 'Software En
     return analysis;
     
   } catch (error) {
-    console.error('Gemini Service Error:', error);
+    console.error('Groq Service Error:', error);
     throw new Error(`AI Analysis failed: ${error.message}`);
   }
 };

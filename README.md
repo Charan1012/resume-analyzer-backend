@@ -30,7 +30,7 @@ The server is designed to be deployed separately from the frontend, for example 
    - [controllers/authController.js](#controllersauthcontrollerjs)
    - [controllers/resumeController.js](#controllersresumecontrollerjs)
    - [services/fileParser.js](#servicesfileparserjs)
-   - [services/geminiService.js](#servicesgeminiservicejs)
+   - [services/groqService.js](#servicesgroqservicejs)
 9. [Deployment on Render](#deployment-on-render)
 10. [Security Notes](#security-notes)
 11. [Troubleshooting](#troubleshooting)
@@ -44,7 +44,7 @@ The server is designed to be deployed separately from the frontend, for example 
 - PDF and DOCX resume upload
 - File validation and temporary storage
 - Resume text extraction using `pdf-parse` and `mammoth`
-- AI analysis using Google Generative AI (Gemini)
+- AI analysis using Groq text generation
 - Resume history storage in MongoDB
 - Clean error handling and route protection
 
@@ -61,7 +61,7 @@ The server is designed to be deployed separately from the frontend, for example 
 - **multer**: File upload middleware
 - **pdf-parse**: PDF text extraction
 - **mammoth**: DOCX text extraction
-- **@google/generative-ai**: Google Gemini AI integration
+- **Groq API**: Groq text generation integration
 - **dotenv**: Environment variable loader
 - **cors**: Cross-origin request handling
 - **nodemon**: Dev-time auto-reload
@@ -88,7 +88,7 @@ server/
 │   └── resumeRoutes.js
 ├── services/
 │   ├── fileParser.js
-│   └── geminiService.js
+│   └── groqService.js
 ├── uploads/
 ├── server.js
 ├── package.json
@@ -105,7 +105,7 @@ Create a `.env` file in the server folder with the following values:
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
-GEMINI_API_KEY=your_google_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
 ```
 
 ### Explanation
@@ -113,7 +113,7 @@ GEMINI_API_KEY=your_google_gemini_api_key
 - `PORT`: The port the server listens on. Defaults to `5000` if not set.
 - `MONGODB_URI`: MongoDB Atlas or local connection string.
 - `JWT_SECRET`: Secret used to sign JWT tokens.
-- `GEMINI_API_KEY`: API key for Google Generative AI, used for Gemini AI analysis.
+- `GROQ_API_KEY`: API key for Groq text generation, used for resume analysis.
 
 ---
 
@@ -386,7 +386,7 @@ npm start
 - Reads `jobRole` from request body.
 - Extracts text using `extractText()`.
 - Validates that extracted text has length >= 100.
-- Sends data to `analyzeResumeWithGemini()`.
+- Sends data to `analyzeResumeWithGroq()`.
 - Saves AI analysis under the authenticated user's record.
 - Deletes temporary file after processing.
 - Returns JSON analysis.
@@ -434,26 +434,27 @@ npm start
 
 ---
 
-### services/geminiService.js
+### services/groqService.js
 
-**Purpose**: Sends resume text and job role to Google Gemini AI and parses the returned JSON.
+**Purpose**: Sends resume text and job role to Groq text generation API and parses the returned JSON.
 
 **How it works**:
 
-1. Initializes Google Generative AI client using `GEMINI_API_KEY`.
-2. Chooses model `gemini-2.5-flash`.
+1. Reads `GROQ_API_KEY` from environment variables.
+2. Chooses model `groq-1.1-mini`.
 3. Builds a prompt with instructions and the resume text.
-4. Calls `model.generateContent(prompt)`.
-5. Reads response text.
-6. Extracts JSON using regex to handle markdown code blocks.
-7. Validates required fields:
+4. Sends a POST request to `https://api.groq.com/v1/text/generate`.
+5. Reads response JSON.
+6. Extracts the generated text output.
+7. Extracts JSON using regex to handle markdown code blocks.
+8. Validates required fields:
    - `atsScore`
    - `strengths`
    - `improvements`
    - `missingKeywords`
    - `formattingTips`
    - `overallFeedback`
-8. Returns parsed analysis.
+9. Returns parsed analysis.
 
 **Why it is required**:
 
@@ -473,7 +474,7 @@ npm start
   - `PORT`
   - `MONGODB_URI`
   - `JWT_SECRET`
-  - `GEMINI_API_KEY`
+  - `GROQ_API_KEY`
 
 ### Notes
 
@@ -497,9 +498,9 @@ npm start
 
 ### `AI analysis failed: model not found`
 
-- Ensure `GEMINI_API_KEY` is valid.
-- Ensure the Generative Language API is enabled in Google Cloud.
-- Use a model available to your API key, such as `gemini-2.5-flash`.
+- Ensure `GROQ_API_KEY` is valid.
+- Ensure your Groq API key is active and has text generation access.
+- Use a model available to Groq, such as `groq-1.1-mini`.
 
 ### `Could not extract sufficient text from file`
 
