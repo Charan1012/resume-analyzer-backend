@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const apiKey = process.env.GROQ_API_KEY;
-const apiUrl = 'https://api.groq.com/v1/text/generate';
+const apiUrl = 'https://api.groq.com/openai/v1/responses';
 
 if (!apiKey) {
   throw new Error('Missing GROQ_API_KEY environment variable');
@@ -55,16 +55,24 @@ export const analyzeResumeWithGroq = async (resumeText, jobRole = 'Software Engi
     }
 
     const result = await response.json();
-    const output = result.output;
+    // Groq Responses API may return `output_text` or `output` array/object.
     let text = '';
-
-    if (typeof output === 'string') {
-      text = output;
-    } else if (Array.isArray(output)) {
-      const first = output[0];
-      text = typeof first === 'string' ? first : first?.content ?? '';
-    } else if (output?.content) {
-      text = output.content;
+    if (result.output_text) {
+      text = result.output_text;
+    } else if (result.output) {
+      const out = result.output;
+      if (typeof out === 'string') {
+        text = out;
+      } else if (Array.isArray(out) && out.length > 0) {
+        const first = out[0];
+        text = typeof first === 'string' ? first : first?.content ?? first?.text ?? '';
+      } else if (out.content) {
+        text = out.content;
+      }
+    } else if (result.choices && Array.isArray(result.choices) && result.choices[0]) {
+      // fallback for openai-compatible choice schema
+      const choice = result.choices[0];
+      text = choice.message?.content || choice.text || '';
     }
 
     if (!text || !text.trim()) {
