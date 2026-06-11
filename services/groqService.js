@@ -4,6 +4,7 @@ dotenv.config();
 
 const apiKey = process.env.GROQ_API_KEY;
 const apiUrl = 'https://api.groq.com/openai/v1/responses';
+const modelId = process.env.GROQ_MODEL || 'groq/compound-mini';
 
 if (!apiKey) {
   throw new Error('Missing GROQ_API_KEY environment variable');
@@ -43,7 +44,7 @@ export const analyzeResumeWithGroq = async (resumeText, jobRole = 'Software Engi
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'groq-1.1-mini',
+        model: modelId,
         input: prompt,
         max_output_tokens: 1200
       })
@@ -51,6 +52,11 @@ export const analyzeResumeWithGroq = async (resumeText, jobRole = 'Software Engi
 
     if (!response.ok) {
       const errorBody = await response.text();
+      let parsed;
+      try { parsed = JSON.parse(errorBody); } catch(e) { parsed = null; }
+      if (response.status === 404 || parsed?.error?.code === 'model_not_found') {
+        throw new Error(`Groq API model not found: model='${modelId}'. Set a valid model in GROQ_MODEL or pick one from https://console.groq.com/docs/models. Raw: ${errorBody}`);
+      }
       throw new Error(`Groq API error ${response.status}: ${errorBody}`);
     }
 
